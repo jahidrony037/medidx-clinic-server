@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
@@ -9,7 +10,27 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+//custom middleware
 
+const verifyToken = async (req,res,next)=>{
+  // console.log('inside verify token', req.headers);
+  if(!req.headers?.authorization){
+    return res.status(401).json({message:"UnAuthorized Access"});
+  }
+  if(req.headers?.authorization){
+    const token = (req.headers?.authorization).split(' ')[1];
+    if(!token){
+      return res.status(403).json({message: "Forbidden Access"})
+    }
+    jwt.verify(token,process.env.SECRET_ACCESS_TOKEN, (err,decoded)=>{
+      if(err){
+        return res.status(401).json({message:'Forbidden Access'})
+      }
+      req.decoded=decoded;
+          next();
+    })
+  }
+}
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@atlascluster.k7qynmg.mongodb.net/?retryWrites=true&w=majority&appName=AtlasCluster`;
@@ -34,6 +55,16 @@ async function run() {
     const districtsCollection = client.db('medidxDB').collection("districts");
     const usersCollection = client.db('medidxDB').collection("users");
 
+
+    //jwt api 
+   
+    app.post('/jwt', async(req,res)=>{
+      const user= req.body;
+      const result = jwt.sign(user,process.env.SECRET_ACCESS_TOKEN,{expiresIn:'1h'})
+      res.json({token:result});
+
+    })
+
     //all upazila get api 
     app.get('/upazila', async(req,res)=>{
         const result = await upazilaCollections.find().toArray();
@@ -45,7 +76,7 @@ async function run() {
     res.json(result);
    })
 
-   //all users post api
+   //user add to database post api
    app.post('/users', async(req,res)=> {
     const {email} = req.query;
     // console.log(email);
@@ -61,14 +92,16 @@ async function run() {
    })
 
    //specific user by email
-   app.get('/users', async(req,res)=>{
+   app.get('/users', verifyToken, async(req,res)=>{
+    // console.log('line number 76: ',req.headers.authorization.split(' ')[1]);
     const {email} = req.query;
     const result = await usersCollection.findOne({email});
     res.json(result);
    })
 
    //update a user information api
-   app.patch('/users/:id', async(req,res)=>{
+   app.patch('/users/:id',verifyToken, async(req,res)=>{
+    // console.log('line number 84,', req.headers?.authorization);
     const id = req.params.id;
     const user = req.body;
     // console.log(id,user);
