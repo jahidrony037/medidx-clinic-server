@@ -180,14 +180,25 @@ const verifyToken =  (req,res,next)=>{
         status: userStatus.status
       }
     }
-
-    
-
     // console.log(updateRole);
     const result = await usersCollection.updateOne(query,updateStatus);
     res.json(result);
    })
 
+
+   // user role change api
+   app.patch('/users/role/:id',verifyToken,verifyAdmin, async(req,res)=> {
+    const id = req.params.id;
+    const query = {_id:new ObjectId(id)};
+    const updateRole = {
+      $set:{
+        role:'admin'
+      }
+    }
+    const result = await usersCollection.updateOne(query,updateRole);
+    res.json(result);
+
+   })
 
 
 
