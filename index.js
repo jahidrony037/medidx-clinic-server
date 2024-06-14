@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { json } = require('stream/consumers');
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -210,6 +211,46 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
    })
 
+   //Delete Test
+   app.delete('/allTests/:id',verifyToken,verifyAdmin,async(req,res)=>{
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)};
+    const result = await testsCollection.deleteOne(query);
+    res.json(result);
+   })
+
+   //Update a Test
+   //find a single test api
+   app.get('/allTests/:id', verifyToken,verifyAdmin,async(req,res)=>{
+    const id = req.params.id;
+    const result = await testsCollection.findOne({_id:new ObjectId(id)});
+    res.json(result);
+   })
+
+   //Update Test api
+   app.patch('/allTests/:id',verifyToken,verifyAdmin,async(req,res)=>{
+    const id = req.params.id;
+    const query= {_id:new ObjectId(id)};
+    const testInfo = req.body;
+    const updateTestInfo = {
+      $set:{
+        testName: testInfo?.testName,
+          testPrice: testInfo?.testPrice,
+          testDetails: testInfo?.testDetails,
+          slots: testInfo?.slots,
+          testImageURL: testInfo?.testImageURL,
+          testDate: testInfo?.testDate,
+      }
+    }
+    const result = await testsCollection.updateOne(query,updateTestInfo,{upsert:true})
+    res.json(result);
+   })
+
+  //get all Tests api
+  app.get('/allTests',verifyToken,verifyAdmin, async(req,res)=>{
+    const result = await testsCollection.find({}).toArray();
+    res.json(result);
+  })
 
 
 
