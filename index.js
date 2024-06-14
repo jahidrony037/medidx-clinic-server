@@ -38,13 +38,14 @@ async function run() {
     const upazilaCollections = client.db('medidxDB').collection("upazila");
     const districtsCollection = client.db('medidxDB').collection("districts");
     const usersCollection = client.db('medidxDB').collection("users");
+    const testsCollection = client.db('medidxDB').collection("tests");
 
 
     //jwt api 
    
     app.post('/jwt', async(req,res)=>{
       const user= req.body;
-      const result = jwt.sign(user,process.env.SECRET_ACCESS_TOKEN,{expiresIn:'1h'})
+      const result = jwt.sign(user,process.env.SECRET_ACCESS_TOKEN,{expiresIn:'1h'});
       res.json({token:result});
 
     })
@@ -198,6 +199,15 @@ const verifyToken =  (req,res,next)=>{
     const result = await usersCollection.updateOne(query,updateRole);
     res.json(result);
 
+   })
+
+   //All Test Related API
+   //ADDTest
+   app.post('/addTest',verifyToken,verifyAdmin, async(req,res)=>{
+    const testInfo = req.body;
+    // console.log(testInfo);
+    const result = await testsCollection.insertOne(testInfo);
+    res.json(result);
    })
 
 
