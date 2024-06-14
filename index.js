@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId, Int32 } = require('mongodb');
 const { json } = require('stream/consumers');
 const app = express();
 const port = process.env.PORT || 5000;
@@ -40,6 +40,7 @@ async function run() {
     const districtsCollection = client.db('medidxDB').collection("districts");
     const usersCollection = client.db('medidxDB').collection("users");
     const testsCollection = client.db('medidxDB').collection("tests");
+    const bannersCollection = client.db('medidxDB').collection("banners");
 
 
     //jwt api 
@@ -243,6 +244,23 @@ const verifyToken =  (req,res,next)=>{
       }
     }
     const result = await testsCollection.updateOne(query,updateTestInfo,{upsert:true})
+    res.json(result);
+   })
+
+   //Banner related api by Admin
+   //Add Banner
+   app.post('/addBanner', verifyToken,verifyAdmin, async(req,res)=>{
+    const info = req.body;
+    const bannerInfo= {
+      bannerName: info?.bannerName,
+          bannerTitle: info?.bannerTitle,
+          bannerImageURL: info?.bannerImageURL,
+          bannerDescription: info?.bannerDescription,
+          couponCode: info?.couponCode,
+          couponRate: new Int32(info?.couponRate) ,
+          bannerActive:info?.bannerActive,
+    }
+    const result = await bannersCollection.insertOne(bannerInfo);
     res.json(result);
    })
 
