@@ -247,7 +247,16 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
    })
 
-   //Banner related api by Admin
+   
+  //get all Tests api
+  app.get('/allTests',verifyToken,verifyAdmin, async(req,res)=>{
+    const result = await testsCollection.find({}).toArray();
+    res.json(result);
+  })
+
+
+
+  //Banner related api by Admin
    //Add Banner
    app.post('/addBanner', verifyToken,verifyAdmin, async(req,res)=>{
     const info = req.body;
@@ -263,12 +272,36 @@ const verifyToken =  (req,res,next)=>{
     const result = await bannersCollection.insertOne(bannerInfo);
     res.json(result);
    })
+   //Delete a banner api
+   app.delete('/allBanners/:id', verifyToken,verifyAdmin, async(req,res)=>{
+    const result = await bannersCollection.deleteOne({_id:new ObjectId(req.params.id)});
+    res.send(result);
+   })
 
-  //get all Tests api
-  app.get('/allTests',verifyToken,verifyAdmin, async(req,res)=>{
-    const result = await testsCollection.find({}).toArray();
+   //banner Status Change api
+   app.patch('/allBanners/:id', verifyToken,verifyAdmin, async(req,res)=>{
+    const {bannerStatus} = req.body;
+    // console.log(bannerStatus);
+    const query = {_id:new ObjectId(req.params.id)}
+
+    if(bannerStatus==='False'){
+      const result = await bannersCollection.updateOne(query, {$set:{bannerActive:bannerStatus}});
+     return res.json(result);
+      
+    }
+   else{
+    await bannersCollection.updateMany({},{$set:{bannerActive:'False'}})
+   }
+   const result = await bannersCollection.updateOne(query, {$set:{bannerActive:bannerStatus}});
+   res.json(result);
+   })
+
+  
+
+   app.get('/allBanners', verifyToken,verifyAdmin, async(req,res)=>{
+    const result = await bannersCollection.find().toArray();
     res.json(result);
-  })
+   })
 
 
 
