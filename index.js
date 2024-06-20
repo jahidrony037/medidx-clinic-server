@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
+const moment = require('moment-timezone');
 const { MongoClient, ServerApiVersion, ObjectId, Int32 } = require('mongodb');
 const { json } = require('stream/consumers');
 const app = express();
@@ -41,6 +42,7 @@ async function run() {
     const usersCollection = client.db('medidxDB').collection("users");
     const testsCollection = client.db('medidxDB').collection("tests");
     const bannersCollection = client.db('medidxDB').collection("banners");
+    const bookingsCollection = client.db('medidxDB').collection("bookings");
 
 
     //jwt api 
@@ -206,8 +208,16 @@ const verifyToken =  (req,res,next)=>{
    //All Test Related API
    //ADDTest
    app.post('/addTest',verifyToken,verifyAdmin, async(req,res)=>{
-    const testInfo = req.body;
+    const test = req.body;
     // console.log(testInfo);
+    const testInfo = {
+      testName: test?.testName,
+      testPrice: new Int32(test?.testPrice),
+      testDetails: test?.testDetails,
+      slots: test?.slots,
+      testImageURL: test?.testImageURL,
+      testDate: test?.testDate,
+    };
     const result = await testsCollection.insertOne(testInfo);
     res.json(result);
    })
@@ -222,7 +232,7 @@ const verifyToken =  (req,res,next)=>{
 
    //Update a Test
    //find a single test api
-   app.get('/allTests/:id', verifyToken,verifyAdmin,async(req,res)=>{
+   app.get('/allTests/:id', verifyToken,async(req,res)=>{
     const id = req.params.id;
     const result = await testsCollection.findOne({_id:new ObjectId(id)});
     res.json(result);
@@ -254,6 +264,24 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
   })
 
+  //get available test for users and admin also
+  app.get('/allAvailableTests', async(req,res)=>{
+    const today = new Date();
+    const result = await testsCollection.find({testDate:{$gte:today}}).toArray();
+    res.json(result);
+  })
+
+  //get all available Tests by date 
+  app.get('/availableTests', async(req,res)=>{
+    const date = req.query?.date;
+    // console.log(date);
+    // const query = {testDate: date};
+    // console.log(query);
+    const result = await testsCollection.find({testDate: date}).toArray();
+    res.json(result);
+
+  })
+
 
 
   //Banner related api by Admin
@@ -272,6 +300,8 @@ const verifyToken =  (req,res,next)=>{
     const result = await bannersCollection.insertOne(bannerInfo);
     res.json(result);
    })
+
+
    //Delete a banner api
    app.delete('/allBanners/:id', verifyToken,verifyAdmin, async(req,res)=>{
     const result = await bannersCollection.deleteOne({_id:new ObjectId(req.params.id)});
@@ -294,6 +324,32 @@ const verifyToken =  (req,res,next)=>{
    }
    const result = await bannersCollection.updateOne(query, {$set:{bannerActive:bannerStatus}});
    res.json(result);
+   })
+
+   //test booking api
+   app.post('/bookings',verifyToken, async(req,res)=>{
+    const booking = req.body;
+    const id = booking?.testId;
+    const query = {
+      appointmentDate: booking?.appointmentDate,
+      email: booking?.email,
+      testName: booking?.testName
+    }
+    
+    const alreadyBooked = await bookingsCollection.find(query).toArray();
+    if(alreadyBooked.length){
+      const message = `You Already have a booking on ${booking.appointmentDate}`
+      return res.json({acknowledge: false, message})
+    }
+    const test = await testsCollection.findOne({_id:new ObjectId(id)});
+    const remainingSlots = test?.slots.filter((slot)=> slot!==booking.testTime)
+    // console.log(remainingSlots);
+    await testsCollection.updateOne({_id:new ObjectId(id)},{$set:{slots:remainingSlots}},{upsert:true})
+
+
+    // console.log(bookingInfo);
+    const result = await bookingsCollection.insertOne(booking);
+    res.json(result);
    })
 
   
