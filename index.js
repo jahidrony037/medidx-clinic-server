@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
+const {format} = require('date-fns');
 const jwt = require('jsonwebtoken');
 const moment = require('moment-timezone');
 const { MongoClient, ServerApiVersion, ObjectId, Int32 } = require('mongodb');
@@ -14,8 +15,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://medidx-clinic.firebaseapp.com",
       "https://medidx-clinic.web.app",
+      "https://medidx-clinic.firebaseapp.com",
     ]
   })
 );
@@ -52,6 +53,7 @@ async function run() {
     const testsCollection = client.db('medidxDB').collection("tests");
     const bannersCollection = client.db('medidxDB').collection("banners");
     const bookingsCollection = client.db('medidxDB').collection("bookings");
+    const featuresCollection = client.db('medidxDB').collection("features");
 
 
     //jwt api 
@@ -130,7 +132,7 @@ const verifyToken =  (req,res,next)=>{
     const {email} = req.query;
     // console.log(email);
     const existsUser = await usersCollection.findOne({email:email});
-    console.log(existsUser);
+    // console.log(existsUser);
     if(existsUser){return res.json({message:"user already exists"})}
     if(!existsUser){
       const user = req.body;
@@ -295,7 +297,7 @@ const verifyToken =  (req,res,next)=>{
 
   //get available test for users and admin also
   app.get('/allAvailableTests', async(req,res)=>{
-    const today = new Date();
+    const today = format(new Date(),"PP");
     const result = await testsCollection.find({testDate:{$gte:today}}).toArray();
     res.json(result);
   })
@@ -471,6 +473,12 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
    })
 
+   //all Features api
+   app.get('/features', async(req,res)=>{
+    const result = await featuresCollection.find({}).toArray();
+    res.json(result);
+   })
+
 
 
    //payment related api
@@ -504,7 +512,7 @@ const verifyToken =  (req,res,next)=>{
 
 
     // await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
