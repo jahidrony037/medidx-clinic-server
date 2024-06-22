@@ -10,7 +10,15 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 //middle wires
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://medidx-clinic.firebaseapp.com",
+      "https://medidx-clinic.web.app",
+    ]
+  })
+);
 app.use(express.json());
 
 
@@ -495,7 +503,7 @@ const verifyToken =  (req,res,next)=>{
 
 
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
