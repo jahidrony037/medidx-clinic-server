@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment-timezone');
 const { MongoClient, ServerApiVersion, ObjectId, Int32 } = require('mongodb');
 const { json } = require('stream/consumers');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -264,6 +265,26 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
   })
 
+  // get all testName by admin
+  app.get('/allTestName',verifyToken,verifyAdmin, async(req,res)=>{
+    const pipeline = [
+      {
+        $group: {
+          _id: "$testName",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          testName: "$_id",
+        },
+      },
+    ];
+
+    const testNames = await testsCollection.aggregate(pipeline).toArray();
+    res.json(testNames);
+  })
+
   //get available test for users and admin also
   app.get('/allAvailableTests', async(req,res)=>{
     const today = new Date();
@@ -326,21 +347,32 @@ const verifyToken =  (req,res,next)=>{
    res.json(result);
    })
 
-   //test booking api
-   app.post('/bookings',verifyToken, async(req,res)=>{
+
+   //check already bookedTest or not
+   app.post('/checkBookingTest',verifyToken,async(req,res)=>{
     const booking = req.body;
-    const id = booking?.testId;
-    const query = {
+    const query= {
       appointmentDate: booking?.appointmentDate,
       email: booking?.email,
       testName: booking?.testName
     }
-    
+    // console.log(query);
     const alreadyBooked = await bookingsCollection.find(query).toArray();
     if(alreadyBooked.length){
-      const message = `You Already have a booking on ${booking.appointmentDate}`
+      const message = `You Already have a booking on ${booking.appointmentDate} Try Another Day`
       return res.json({acknowledge: false, message})
     }
+    else{
+      return res.json({acknowledge:true})
+    }
+   })
+
+
+   //test booking api
+   app.post('/bookingsTest',verifyToken, async(req,res)=>{
+    const booking = req.body;
+    const id = booking?.testId;
+    
     const test = await testsCollection.findOne({_id:new ObjectId(id)});
     const remainingSlots = test?.slots.filter((slot)=> slot!==booking.testTime)
     // console.log(remainingSlots);
@@ -352,11 +384,110 @@ const verifyToken =  (req,res,next)=>{
     res.json(result);
    })
 
-  
+   //get bookedTest by user api
+   app.get('/bookingsTest',verifyToken, async(req,res)=>{
+      const email = req.query.email;
+      // console.log(email);
+      const query = {email:email};
+      const result = await bookingsCollection.find(query).toArray();
+      res.json(result);
+   })
 
+   //booking cancel by user
+   app.delete('/bookingsTest/:id',verifyToken, async(req,res)=>{
+    const id = req.params.id;
+    const query = {_id:new ObjectId(id)};
+    // console.log(query);
+    const result = await bookingsCollection.deleteOne(query);
+    res.json(result);
+   } )
+
+   //all bookings get by testName
+   app.get('/reservations', verifyToken,verifyAdmin, async(req,res)=>{
+    const testName = req.query?.testName;
+    // console.log(testName);
+    const query= {testName:testName};
+    const result = await bookingsCollection.find(query).toArray();
+    res.json(result);
+   })
+
+   //reservation search by admin api
+   app.get('/reservations/search', verifyToken,verifyAdmin, async(req,res)=>{
+      const query = req.query?.email;
+      const result = await bookingsCollection.find({email:{$regex:query,$options:'i'}}).toArray();
+        res.json(result);
+   })
+
+   //for report submit by admin api
+   app.patch('/reservations/:id', verifyToken,verifyAdmin, async(req,res)=>{
+      const id = req.params.id;
+      const query={_id:new ObjectId(id)};
+      const info = req.body;
+      // console.log(info,query);
+      const updateInfo= {
+        $set:{
+          reportLink:info?.reportLink,
+          reportStatus:info?.reportStatus
+        }
+      }
+      const result = await bookingsCollection.updateMany(query,updateInfo,{upsert:true});
+      res.json(result);
+   })
+
+   //all test results api for user
+   app.get('/testResults', verifyToken, async(req,res)=>{
+    const mail = req.query.email;
+    const query= {email:mail};
+    const result = await bookingsCollection.find(query).toArray();
+    res.json(result);
+   })
+
+   //specific Test Result by testId for user api
+   app.get('/downloadResult/:id',verifyToken,async(req,res)=>{
+    const id = req.params.id;
+    const query={_id:new ObjectId(id),reportStatus:"delivered",paymentStatus:"paid"}
+    const result = await bookingsCollection.findOne(query);
+    res.json(result.reportLink);
+   })
+  
+   // all banners 
    app.get('/allBanners', verifyToken,verifyAdmin, async(req,res)=>{
     const result = await bannersCollection.find().toArray();
     res.json(result);
+   })
+
+   //single banner id
+   app.get('/activeBanner', async(req,res)=> {
+    const query = {bannerActive:"True"};
+    const result = await bannersCollection.findOne(query);
+    res.json(result);
+   })
+
+
+
+   //payment related api
+
+   //create-payment-intent
+   app.post('/create-payment-intent',verifyToken, async(req,res)=>{
+    const price = req.body.price;
+    const priceInCent = Math.round((price/110)*100); 
+
+    if(!price || priceInCent<1) return;
+
+    //generate clientSecret
+    const {client_secret} = await stripe.paymentIntents.create({
+      amount:priceInCent,
+      currency: 'usd',
+
+      // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+    automatic_payment_methods: {
+      enabled: true,
+    },
+    })
+
+
+    //send client secret as response
+    res.json({clientSecret: client_secret})
    })
 
 
