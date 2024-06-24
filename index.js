@@ -54,6 +54,8 @@ async function run() {
     const bannersCollection = client.db('medidxDB').collection("banners");
     const bookingsCollection = client.db('medidxDB').collection("bookings");
     const featuresCollection = client.db('medidxDB').collection("features");
+    const doctorsCollection = client.db('medidxDB').collection('doctors');
+    const reviewsCollection = client.db('medidxDB').collection('reviews');
 
 
     //jwt api 
@@ -361,6 +363,17 @@ const verifyToken =  (req,res,next)=>{
    //check already bookedTest or not
    app.post('/checkBookingTest',verifyToken,async(req,res)=>{
     const booking = req.body;
+
+    //check user status active or blocked
+
+    const email = {email:booking?.email};
+    const user = await usersCollection.findOne(email);
+    // console.log("user",user.status);
+    if(user?.status==='blocked'){
+      const message = `You are blocked can't booking any appointment`;
+      return res.json({acknowledge: false, message})
+    }
+
     const query= {
       appointmentDate: booking?.appointmentDate,
       email: booking?.email,
@@ -478,6 +491,32 @@ const verifyToken =  (req,res,next)=>{
     const result = await featuresCollection.find({}).toArray();
     res.json(result);
    })
+
+   //doctors related api
+   app.post('/addDoctor',verifyToken,verifyAdmin, async (req,res)=>{
+    const doctor= req.body;
+    // console.log(doctor);
+    const result = await doctorsCollection.insertOne(doctor);
+    res.json(result);
+   })
+
+   app.get('/doctors', async (req,res)=>{
+    const result = await doctorsCollection.find({}).toArray();
+    res.json(result);
+   })
+
+   //review related api
+   app.post('/addReview',verifyToken, async(req,res)=>{
+    const review = req.body;
+    const result = await reviewsCollection.insertOne(review);
+    res.json(result);
+   })
+   app.get('/reviews',async(req,res)=>{
+    const result = await reviewsCollection.find({}).toArray();
+    res.json(result);
+   })
+
+
 
 
 
